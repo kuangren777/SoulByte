@@ -15,5 +15,9 @@ data/
 .pytest_cache/
 .mypy_cache/
 
+output/
+report/
+all_data/
 
+*.pyc
 *report.md
