@@ -7,6 +7,9 @@
 
 SoulByte 是**数字人生成系列项目**的核心数据处理组件，专注于将微信聊天记录转换为高质量的AI训练数据集和个人知识库。该工具采用模块化设计，支持智能历史记录构建、联系人关系管理和大模型质量评估，为数字人的个性化训练和知识库构建奠定基础。
 
+系列项目，超级想要star，麻烦点个star再走呗~~~
+[![Star](https://img.shields.io/github/stars/kuangren777/SoulByte.svg?style=social&label=Star)](https://github.com/kuangren777/SoulByte/)
+
 ## 🎯 项目定位
 
 ### 📍 系列项目概览
@@ -168,13 +171,30 @@ soulbyte/
 
 3. **数据准备**
    
-   将微信聊天记录CSV文件放置在以下结构中：
+   > 感谢[PyWxDump](https://github.com/xaoyaoo/PyWxDump)开源微信聊天记录下载。本项目依赖于[PyWxDump](https://github.com/xaoyaoo/PyWxDump)。
+
+   3.1 首先，从[这里](https://github.com/xaoyaoo/PyWxDump/releases)获取[PyWxDump](https://github.com/xaoyaoo/PyWxDump)最新release版本。(建议使用Windows，微信版本<=3.9)
+
+   3.2 使用
+   > 1.打开微信电脑版，登录微信
+   >
+   > 2.进入下载的exe文件所在目录
+   >
+   > 3.双击wx_dump.exe运行
+   >
+   > 4.打开浏览器，访问 http://127.0.0.1:5000/ 使用图形界面
+   >
+   > 5.根据提示操作
+   >
+   > 【注】更多详细使用方法关注公众号：逍遥之芯，回复：PyWxDump 获取图文教程。
+
+   进入聊天界面，将微信聊天记录使用CSV文件导出（建议使用私聊的数据，不要使用群聊的数据进行训练），并放置在以下结构中：
    ```
    data/
-   ├── 联系人1/
+   ├── 微信号xxxx/
    │   ├── messages.csv    # 聊天记录
    │   └── users.json      # 联系人信息
-   ├── 联系人2/
+   ├── 微信号xxxx/
    │   ├── messages.csv
    │   └── users.json
    └── ...
@@ -572,7 +592,7 @@ SoulByte将与以下技术深度集成：
 
 ---
 
-**🌟 如果这个项目对您有帮助，请给我们一个星标！**
+**🌟 如果这个项目对您有帮助，请给我们一个星标！**[![Star](https://img.shields.io/github/stars/kuangren777/SoulByte.svg?style=social&label=Star)](https://github.com/kuangren777/SoulByte/)
 
 **📢 欢迎分享您的使用经验和改进建议！**
 
