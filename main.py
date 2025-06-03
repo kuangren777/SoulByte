@@ -2,19 +2,28 @@
 # -*- coding: utf-8 -*-
 
 """
-微信聊天记录处理工具 - 主入口
-WeChat Message Processing Tool - Main Entry Point
+SoulByte - 数字人生成系列项目 · 数据处理组件
+SoulByte - Digital Human Generation Series · Data Processing Component
 
-这是一个用于处理微信聊天记录并生成AI训练数据的工具。
-该工具包含以下主要功能：
-1. 数据提取和清洗
-2. 联系人关系管理
+SoulByte 是数字人生成系列项目的核心数据处理组件，专注于从微信聊天记录中
+提取"数字灵魂"，为个性化数字人的训练和知识库构建提供高质量数据基础。
+
+主要功能：
+1. 智能聊天数据提取和清洗
+2. 联系人关系网络管理
 3. 历史对话上下文构建（72小时窗口）
-4. 大模型质量评估
-5. 训练数据生成和筛选
+4. 大模型质量评估和筛选
+5. 个人知识库数据准备
+
+未来规划：
+- 模型微调流程集成
+- 可视化分析界面
+- RAG知识检索系统
+- 个性化Embedding优化
+- 完整数字人生成生态
 
 作者: Kuangren777
-版本: 2.0 (重构版本)
+版本: 2.0 (数据处理基础版)
 更新时间: 2025年6月
 """
 
@@ -35,12 +44,16 @@ from utils import HistoryManager
 
 
 class WeChatProcessorApp:
-    """微信聊天数据处理应用程序"""
+    """SoulByte 智能聊天数据处理应用程序"""
     
     def __init__(self):
         """初始化应用程序"""
         self.processor = WeChatMainProcessor()
-        print("微信聊天记录处理工具已启动")
+        print("SoulByte · 数字人生成系列项目 - 数据处理组件")
+        print("=" * 60)
+        print("🎯 当前阶段: 智能聊天数据处理和训练数据生成")
+        print("🚀 项目愿景: 构建完整的数字人生成生态系统")
+        print("💡 核心目标: 从聊天数据中提取'数字灵魂'")
         print("=" * 60)
         print("🔧 核心改进:")
         print("  • 历史记录扩展到前72小时")
@@ -586,17 +599,27 @@ class WeChatProcessorApp:
 def show_help():
     """显示帮助信息"""
     help_text = """
-🔧 微信聊天记录处理工具 v2.0 - 重构版本
+🔧 SoulByte - 数字人生成系列项目 · 数据处理组件 v2.0
 
 📖 功能概述:
-  这是一个用于处理微信聊天记录并生成AI训练数据的工具。
-  主要功能包括数据提取、联系人管理、历史上下文构建和质量评估。
+  SoulByte 是数字人生成系列项目的核心数据处理组件，专注于从微信聊天记录中
+  提取"数字灵魂"，为个性化数字人训练提供高质量数据基础。
+
+🎯 项目定位:
+  • 数字人生成系列项目的数据基石
+  • 个人聊天数据的智能处理和知识萃取
+  • 为后续模型训练和知识库构建奠定基础
 
 💡 核心改进:
   • 历史记录扩展到前72小时（原来只有当天）
   • 智能联系人过滤（只显示相关对话历史）
   • 完整的日期时间显示和日期分隔线
   • 模块化代码结构，易于维护和扩展
+
+🛣️ 发展规划:
+  v2.x - 微调流程、可视化界面、前后端联通
+  v3.x - 个人知识库、RAG检索、Rerank排序、Embedding优化
+  v4.x+ - 数字人生成、智能对话引擎、生态系统集成
 
 🚀 使用方法:
   python main.py                    # 完整处理流程（兼容模式）
@@ -643,8 +666,8 @@ def show_help():
 
 def main():
     """主函数"""
-    print("微信聊天记录处理工具 v2.0")
-    print("WeChat Message Processing Tool v2.0")
+    print("SoulByte v2.0")
+    print("SoulByte - Intelligent WeChat Data Processing Tool v2.0")
     print("=" * 60)
     
     app = WeChatProcessorApp()

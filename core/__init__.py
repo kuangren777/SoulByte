@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 
 """
-Core processing modules for WeChat message data
+SoulByte 核心处理模块
+Core processing modules for SoulByte intelligent chat data processing
 """
 
 from .data_processor import WeChatDataProcessor

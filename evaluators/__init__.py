@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 
 """
-Evaluation modules for WeChat message training data
+SoulByte 评估模块
+Evaluation modules for SoulByte intelligent chat data training
 """
 
 from .llm_evaluator import LLMEvaluator

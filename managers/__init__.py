@@ -2,7 +2,8 @@
 # -*- coding: utf-8 -*-
 
 """
-Manager modules for WeChat message processing
+SoulByte 管理器模块
+Manager modules for SoulByte intelligent chat data processing
 """
 
 from .config_manager import ConfigManager

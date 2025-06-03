@@ -244,7 +244,7 @@ def format_training_data_process_worker(args):
 
 
 class WeChatDataProcessor:
-    """微信聊天数据处理器"""
+    """SoulByte 智能聊天数据处理器"""
     
     def __init__(self, config_file: str = "config.json"):
         # 加载配置

@@ -14,9 +14,9 @@
     "api_key": "your_api_key_here",
     "model": "your_model_name_here",
     "max_workers": 3,
-    "min_score": 5.0,
+    "min_score": 6.0,
     "timeout": 30,
     "retry_attempts": 3,
-    "evaluation_prompt": "请评估这个微信聊天训练样本的质量。考虑以下几个方面：\n1. 对话的自然性和流畅性\n2. 回复的相关性和准确性\n3. 语言风格的一致性\n4. 是否包含足够的上下文信息\n\n请给出1-10分的评分，其中10分为最高质量。\n\n指令: {instruction}\n输入: {input}\n输出: {output}\n\n评分："
+    "evaluation_prompt": "请评估这个SoulByte智能聊天训练样本的质量。考虑以下几个方面：\n1. 对话的自然性和流畅性\n2. 回复的相关性和准确性\n3. 语言风格的一致性\n4. 是否包含足够的上下文信息\n\n请给出1-10分的评分，其中10分为最高质量。\n\n指令: {instruction}\n输入: {input}\n输出: {output}\n\n评分："
   }
 }

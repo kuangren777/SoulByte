@@ -16,7 +16,7 @@ from utils.history_utils import HistoryManager
 
 
 class WeChatMainProcessor(WeChatDataProcessor):
-    """微信聊天数据主处理器 - 继承基础处理器并添加主要流程"""
+    """SoulByte 智能聊天数据主处理器 - 继承基础处理器并添加主要流程"""
     
     def extract_message_blocks(self, messages: List[Dict]) -> List[Tuple[List[Dict], List[Dict]]]:
         """提取对话回合：(对方消息块, 我的回复块) 的配对"""
