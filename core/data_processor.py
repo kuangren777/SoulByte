@@ -14,11 +14,11 @@ from multiprocessing import Manager, cpu_count
 from tqdm import tqdm
 import jieba
 
-from config_manager import ConfigManager
-from contact_manager import ContactManager
-from evaluation_cache import EvaluationCache
-from llm_evaluator import LLMEvaluator
-from history_utils import HistoryManager, build_context_for_process, build_history_text_for_process, format_message_block_content
+from managers.config_manager import ConfigManager
+from managers.contact_manager import ContactManager
+from managers.evaluation_cache import EvaluationCache
+from evaluators.llm_evaluator import LLMEvaluator
+from utils.history_utils import HistoryManager, build_context_for_process, build_history_text_for_process, format_message_block_content
 
 
 # 多进程工作函数（必须在全局作用域，避免序列化问题）

@@ -10,9 +10,9 @@ from multiprocessing import Manager
 import time
 from tqdm import tqdm
 
-from data_processor import WeChatDataProcessor, extract_message_blocks_process_worker, format_training_data_process_worker
-from contact_manager import ContactManager
-from history_utils import HistoryManager
+from .data_processor import WeChatDataProcessor, extract_message_blocks_process_worker, format_training_data_process_worker
+from managers.contact_manager import ContactManager
+from utils.history_utils import HistoryManager
 
 
 class WeChatMainProcessor(WeChatDataProcessor):

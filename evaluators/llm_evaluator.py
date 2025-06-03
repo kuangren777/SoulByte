@@ -5,8 +5,8 @@ import requests
 import time
 import re
 from typing import Dict, Tuple
-from config_manager import ConfigManager
-from evaluation_cache import EvaluationCache
+from managers.config_manager import ConfigManager
+from managers.evaluation_cache import EvaluationCache
 
 
 class LLMEvaluator:

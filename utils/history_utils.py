@@ -3,7 +3,7 @@
 
 from datetime import datetime, timedelta
 from typing import Dict, List
-from contact_manager import ContactManager
+from managers.contact_manager import ContactManager
 
 
 class HistoryManager:
