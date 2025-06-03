@@ -13,9 +13,9 @@ WeChat Message Processing Tool - Main Entry Point
 4. 大模型质量评估
 5. 训练数据生成和筛选
 
-作者: Claude Sonnet 4
+作者: Kuangren777
 版本: 2.0 (重构版本)
-更新时间: 2024年12月
+更新时间: 2025年6月
 """
 
 import sys
