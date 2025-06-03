@@ -357,6 +357,43 @@ class EvaluationCache:
         """保存缓存到文件（公共接口）"""
         with self._lock:
             self._save_cache_unsafe()
+    
+    def filter_by_score(self, min_score: float) -> List[Dict]:
+        """根据最小分数筛选样本"""
+        filtered_samples = []
+        stats = {
+            'total': len(self.cache),
+            'passed': 0,
+            'failed': 0,
+            'score_distribution': {}
+        }
+        
+        # 分数分布统计初始化
+        for score_range in [(0,2), (2,4), (4,6), (6,8), (8,10)]:
+            stats['score_distribution'][f"{score_range[0]}-{score_range[1]}"] = 0
+        
+        for key, entry in self.cache.items():
+            score = entry.get('score', 0)
+            sample = entry.get('sample')
+            
+            # 统计分数分布
+            for min_r, max_r in [(0,2), (2,4), (4,6), (6,8), (8,10)]:
+                if min_r <= score < max_r:
+                    stats['score_distribution'][f"{min_r}-{max_r}"] += 1
+            
+            if score >= min_score and sample:
+                filtered_samples.append(sample)
+                stats['passed'] += 1
+            else:
+                stats['failed'] += 1
+        
+        print(f"从缓存中筛选：总计 {stats['total']} 条数据，通过 {stats['passed']} 条，未通过 {stats['failed']} 条")
+        print("分数分布:")
+        for range_name, count in stats['score_distribution'].items():
+            percent = (count / stats['total'] * 100) if stats['total'] > 0 else 0
+            print(f"  {range_name}: {count} ({percent:.1f}%)")
+        
+        return filtered_samples
 
 class ContactManager:
     """联系人关系管理器"""
@@ -692,9 +729,94 @@ class WeChatDataProcessor:
             "引用回复": "引用回复"
         }
         
+        # 初始化评估缓存（无论是否启用评估）
+        self.evaluation_cache = EvaluationCache(self.output_dir)
+        
         # 只有在启用评估时才初始化评估器
         if self.use_llm_evaluation and self.config:
             self.llm_evaluator = LLMEvaluator(self.config, self.output_dir)
+    
+    def filter_from_cache(self) -> None:
+        """从评估缓存中筛选训练数据"""
+        print("=== 从评估缓存筛选训练数据 ===")
+        
+        # 检查缓存文件是否存在
+        if not os.path.exists(self.evaluation_cache.cache_file):
+            print(f"错误: 评估缓存文件 {self.evaluation_cache.cache_file} 不存在")
+            return
+            
+        # 获取配置的最低分数
+        min_score = self.min_score
+        print(f"使用最低分数阈值: {min_score}")
+        
+        # 从缓存中筛选数据
+        filtered_data = self.evaluation_cache.filter_by_score(min_score)
+        
+        if not filtered_data:
+            print("警告: 没有符合条件的数据")
+            return
+        
+        # 获取联系人统计摘要
+        contacts_summary = self.contact_manager.get_contacts_summary()
+        
+        # 分析语言模式
+        language_patterns = self.analyze_filtered_data(filtered_data)
+        
+        # 保存筛选后的数据
+        results = {
+            "training_data": filtered_data,
+            "language_patterns": language_patterns,
+            "contacts_summary": contacts_summary,
+            "metadata": {
+                "stage": "cache_filtered",
+                "total_samples": len(filtered_data),
+                "processing_time": datetime.now().isoformat(),
+                "parameters": {
+                    "min_score": min_score
+                }
+            }
+        }
+        
+        # 保存到文件
+        filtered_file = os.path.join(self.output_dir, f'training_data_filtered_{min_score}.json')
+        with open(filtered_file, 'w', encoding='utf-8') as f:
+            json.dump(results, f, ensure_ascii=False, indent=2)
+        
+        # 保存纯训练数据
+        training_only_file = os.path.join(self.output_dir, f'training_only_filtered_{min_score}.json')
+        with open(training_only_file, 'w', encoding='utf-8') as f:
+            json.dump(filtered_data, f, ensure_ascii=False, indent=2)
+        
+        print(f"筛选完成！从缓存中筛选出 {len(filtered_data)} 条训练数据")
+        print(f"完整结果已保存到: {filtered_file}")
+        print(f"纯训练数据已保存到: {training_only_file}")
+    
+    def analyze_filtered_data(self, filtered_data: List[Dict]) -> Dict:
+        """分析筛选后的数据语言模式"""
+        all_text = ""
+        for sample in filtered_data:
+            all_text += sample.get('output', '') + " "
+        
+        frequent_words = self.analyze_frequent_words(all_text, top_n=20)
+        
+        patterns = {
+            "高频词汇": [{"词汇": word, "出现次数": count} for word, count in frequent_words],
+            "样本统计": {
+                "总样本数": len(filtered_data),
+                "平均输出长度": sum(len(sample.get('output', '')) for sample in filtered_data) / len(filtered_data) if filtered_data else 0
+            }
+        }
+        
+        emoji_pattern = r'\[([^\]]+)\]'
+        emojis = re.findall(emoji_pattern, all_text)
+        emoji_count = {}
+        for emoji in emojis:
+            emoji_count[emoji] = emoji_count.get(emoji, 0) + 1
+        
+        patterns["常用表情"] = [{"表情": emoji, "出现次数": count} 
+                            for emoji, count in sorted(emoji_count.items(), key=lambda x: x[1], reverse=True)[:10]]
+        
+        return patterns
     
     def load_processing_state(self) -> Dict:
         """加载处理状态"""
@@ -1859,6 +1981,12 @@ def main():
             processor.manage_contacts_interactive()
             return
             
+        elif command == 'filter':
+            # 从评估缓存筛选数据
+            processor = WeChatDataProcessor()
+            processor.filter_from_cache()
+            return
+            
         elif command == 'help':
             print("微信聊天记录处理工具")
             print("用法:")
@@ -1866,11 +1994,13 @@ def main():
             print("  python process_wechat_data.py stage1    # 阶段1: 数据提取和联系人信息")
             print("  python process_wechat_data.py stage2    # 阶段2: 大模型评估和最终数据集")
             print("  python process_wechat_data.py contacts  # 管理联系人关系")
+            print("  python process_wechat_data.py filter    # 从评估缓存筛选数据")
             print("  python process_wechat_data.py help      # 显示帮助")
             print("\n推荐流程:")
             print("  1. 运行 stage1 提取数据和建立联系人信息")
             print("  2. 使用 contacts 管理和编辑联系人关系")
             print("  3. 运行 stage2 进行质量评估和生成最终数据集")
+            print("  4. 使用 filter 从已有评估缓存中重新筛选数据")
             return
     
     # 默认处理模式（兼容模式）
