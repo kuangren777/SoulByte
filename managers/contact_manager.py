@@ -194,4 +194,9 @@ class ContactManager:
                 keyword_lower in contact['contact_id'].lower()):
                 matches.append(contact)
         
-        return matches 
+        return matches
+    
+    def get_relationship(self, contact_id: str) -> str:
+        """获取联系人关系类型"""
+        contact_info = self.load_contact(contact_id)
+        return contact_info.get('relationship', '朋友') 

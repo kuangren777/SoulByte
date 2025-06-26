@@ -36,11 +36,14 @@ from collections import Counter
 import jieba
 import pandas as pd
 from tqdm import tqdm
+from pathlib import Path
 
 # 导入各个模块
 from core import WeChatMainProcessor
 from managers import ContactManager, EvaluationCache
 from utils import HistoryManager
+from evaluators import LLMEvaluator
+from evaluators.pattern_analyzer import PatternAnalyzer
 
 
 class WeChatProcessorApp:
@@ -595,6 +598,276 @@ class WeChatProcessorApp:
         print("\n" + "="*60)
         self.process_stage2_evaluation_and_final()
 
+    def list_available_contacts(self, data_dir: str = "data") -> List[str]:
+        """列出所有可用的联系人文件夹"""
+        data_path = Path(data_dir)
+        if not data_path.exists():
+            print(f"❌ 数据目录不存在: {data_path}")
+            return []
+        
+        contact_folders = []
+        for item in data_path.iterdir():
+            if item.is_dir() and not item.name.startswith('.'):
+                # 检查文件夹中是否有CSV文件
+                csv_files = list(item.glob("*.csv"))
+                if csv_files:
+                    contact_folders.append(item.name)
+        
+        return sorted(contact_folders)
+
+    def load_contact_messages(self, contact_folder: str, data_dir: str = "data") -> List[Dict]:
+        """加载指定联系人的所有消息
+        
+        Args:
+            contact_folder: 联系人文件夹名称
+            data_dir: 数据目录
+            
+        Returns:
+            消息列表
+        """
+        contact_path = Path(data_dir) / contact_folder
+        if not contact_path.exists():
+            print(f"❌ 联系人文件夹不存在: {contact_path}")
+            return []
+        
+        messages = []
+        csv_files = list(contact_path.glob("*.csv"))
+        
+        if not csv_files:
+            print(f"⚠️ 联系人文件夹中没有CSV文件: {contact_path}")
+            return []
+        
+        print(f"📁 加载联系人 {contact_folder} 的数据...")
+        print(f"   找到 {len(csv_files)} 个CSV文件")
+        
+        for csv_file in sorted(csv_files):
+            try:
+                df = pd.read_csv(csv_file, encoding='utf-8')
+                
+                # 标准化列名（不同导出可能有不同的列名）
+                column_mapping = {
+                    'localId': 'local_id',
+                    'talkerId': 'talker', 
+                    'type': 'type',
+                    'content': 'content',
+                    'msg': 'content',  # 新的映射
+                    'createTime': 'timestamp',
+                    'CreateTime': 'timestamp',  # 新的映射
+                    'isSender': 'is_sender',
+                    'is_sender': 'is_sender',  # 保持不变
+                    'talker': 'talker'
+                }
+                
+                # 重命名列
+                df = df.rename(columns=column_mapping)
+                
+                # 确保必要的列存在
+                required_cols = ['talker', 'content', 'timestamp', 'is_sender']
+                missing_cols = [col for col in required_cols if col not in df.columns]
+                
+                if missing_cols:
+                    print(f"⚠️ 文件 {csv_file.name} 缺少必要列: {missing_cols}")
+                    continue
+                
+                # 过滤文本消息
+                if 'type' in df.columns:
+                    text_df = df[df['type'] == 1]
+                elif 'type_name' in df.columns:
+                    text_df = df[df['type_name'] == '文本']
+                else:
+                    text_df = df
+                
+                # 转换为字典列表
+                for _, row in text_df.iterrows():
+                    timestamp = pd.to_datetime(row['timestamp'])
+                    message = {
+                        'talker': str(row['talker']),
+                        'content': str(row['content']),
+                        'timestamp': timestamp,
+                        'create_time': timestamp.isoformat(),  # 转换为字符串格式
+                        'is_sender': int(row['is_sender']),
+                        'contact_folder': contact_folder
+                    }
+                    messages.append(message)
+                    
+                print(f"   ✅ {csv_file.name}: {len(text_df)} 条文本消息")
+                
+            except Exception as e:
+                print(f"❌ 加载文件失败 {csv_file.name}: {e}")
+                continue
+        
+        # 按时间排序
+        messages.sort(key=lambda x: x['timestamp'])
+        
+        print(f"📊 联系人 {contact_folder} 总计: {len(messages)} 条消息")
+        return messages
+
+    def load_all_messages_for_analysis(self, specific_contact: str = None, data_dir: str = "data") -> List[Dict]:
+        """加载所有消息或特定联系人的消息进行分析
+        
+        Args:
+            specific_contact: 特定联系人文件夹名称，None表示加载所有
+            data_dir: 数据目录
+            
+        Returns:
+            所有消息列表
+        """
+        all_messages = []
+        
+        if specific_contact:
+            contact_folders = [specific_contact] if specific_contact in self.list_available_contacts(data_dir) else []
+            if not contact_folders:
+                print(f"❌ 未找到联系人: {specific_contact}")
+                return []
+        else:
+            contact_folders = self.list_available_contacts(data_dir)
+        
+        if not contact_folders:
+            print("❌ 没有找到任何联系人文件夹")
+            return []
+        
+        print(f"📂 准备分析 {len(contact_folders)} 个联系人的数据")
+        
+        for contact_folder in contact_folders:
+            messages = self.load_contact_messages(contact_folder, data_dir)
+            all_messages.extend(messages)
+        
+        # 按时间排序所有消息
+        all_messages.sort(key=lambda x: x['timestamp'])
+        
+        print(f"📊 总计加载: {len(all_messages)} 条消息")
+        return all_messages
+
+    def analyze_messages_patterns(self, messages: List[Dict]) -> Dict:
+        """分析消息并生成回复模式报告
+        
+        Args:
+            messages: 消息列表
+            
+        Returns:
+            分析结果
+        """
+        if not messages:
+            print("❌ 没有消息可供分析")
+            return {}
+        
+        print("\n🔍 开始分析聊天模式...")
+        
+        # 初始化模式分析器
+        from managers import ConfigManager
+        config = ConfigManager('config.json')
+        pattern_analyzer = PatternAnalyzer(config, self.processor.output_dir)
+        
+        # 使用模式分析器进行分析
+        analysis_result = pattern_analyzer.analyze_chat_patterns(messages)
+        
+        return analysis_result
+
+    def save_analysis_report(self, analysis_result: Dict, contact_name: str = None):
+        """保存分析报告
+        
+        Args:
+            analysis_result: 分析结果
+            contact_name: 联系人名称（如果是单个联系人分析）
+        """
+        if not analysis_result:
+            print("❌ 没有分析结果可保存")
+            return
+        
+        # 确定输出文件名
+        if contact_name:
+            filename = f"analysis_report_{contact_name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        else:
+            filename = f"analysis_report_all_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+        
+        output_file = os.path.join(self.processor.output_dir, filename)
+        
+        # 添加元数据
+        report = {
+            "analysis_time": datetime.now().isoformat(),
+            "analyzed_contact": contact_name,
+            "analysis_type": "single_contact" if contact_name else "all_contacts",
+            "results": analysis_result
+        }
+        
+        try:
+            with open(output_file, 'w', encoding='utf-8') as f:
+                json.dump(report, f, ensure_ascii=False, indent=2, default=str)
+            
+            print(f"✅ 分析报告已保存: {output_file}")
+            
+        except Exception as e:
+            print(f"❌ 保存分析报告失败: {e}")
+
+    def print_analysis_summary(self, analysis_result: Dict):
+        """打印分析结果摘要"""
+        if not analysis_result:
+            return
+        
+        print("\n📊 === 分析结果摘要 ===")
+        
+        if 'total_contacts' in analysis_result:
+            print(f"👥 分析联系人数: {analysis_result['total_contacts']}")
+        
+        if 'total_messages' in analysis_result:
+            print(f"💬 分析消息总数: {analysis_result['total_messages']}")
+        
+        if 'processing_time' in analysis_result:
+            print(f"⏱️ 处理时间: {analysis_result['processing_time']}")
+        
+        print("\n💡 详细分析结果请查看输出的JSON文件")
+
+    def process_analyze_independent(self, contact_name: str = None, data_dir: str = "data"):
+        """独立聊天分析流程，不依赖stage1结果
+        
+        Args:
+            contact_name: 特定联系人名称，None表示分析所有
+            data_dir: 数据目录
+        """
+        print("\n🧠 === 独立聊天分析流程 ===")
+        print("📝 此流程直接从分组数据文件夹读取，无需stage1支持")
+        print("=" * 50)
+        
+        # 如果没有指定联系人，先列出所有可用联系人
+        if not contact_name:
+            contacts = self.list_available_contacts(data_dir)
+            if contacts:
+                print(f"\n📋 找到 {len(contacts)} 个联系人文件夹:")
+                for i, contact in enumerate(contacts, 1):
+                    print(f"  {i:2d}. {contact}")
+                print("\n💡 可以使用 'python main.py analyze --contact 联系人名称' 分析特定联系人")
+            else:
+                print("\n📭 没有找到任何联系人文件夹")
+                return
+        
+        # 加载消息
+        try:
+            messages = self.load_all_messages_for_analysis(contact_name, data_dir)
+        except Exception as e:
+            print(f"❌ 加载消息失败: {e}")
+            return
+        
+        if not messages:
+            print("❌ 没有找到可分析的消息")
+            return
+        
+        # 执行分析
+        try:
+            analysis_result = self.analyze_messages_patterns(messages)
+        except Exception as e:
+            print(f"❌ 分析失败: {e}")
+            return
+        
+        # 保存报告
+        try:
+            self.save_analysis_report(analysis_result, contact_name)
+            self.print_analysis_summary(analysis_result)
+        except Exception as e:
+            print(f"❌ 保存报告失败: {e}")
+            return
+        
+        print("\n🎉 分析完成！")
+
 
 def show_help():
     """显示帮助信息"""
@@ -627,7 +900,14 @@ def show_help():
   python main.py stage2             # 阶段2: 大模型评估和最终数据集
   python main.py contacts           # 管理联系人关系
   python main.py filter             # 从评估缓存筛选数据
+  python main.py analyze            # 独立聊天分析（不依赖stage1）
   python main.py help               # 显示帮助
+
+🧠 独立分析使用方法:
+  python main.py analyze                      # 分析所有联系人
+  python main.py analyze --contact 张三       # 只分析特定联系人
+  python main.py analyze --list               # 列出所有可用联系人
+  python main.py analyze --data-dir ./chats   # 指定数据目录
 
 📋 推荐工作流:
   1. 运行 stage1 提取数据和建立联系人信息
@@ -693,6 +973,31 @@ def main():
         elif command == 'filter':
             print("🔍 从评估缓存筛选数据")
             app.filter_from_cache()
+            return
+            
+        elif command == 'analyze':
+            print("🧠 独立聊天分析")
+            # 解析额外参数
+            contact_name = None
+            data_dir = "data"
+            
+            # 简单的参数解析
+            for i, arg in enumerate(sys.argv[2:], start=2):
+                if arg == '--contact' and i + 1 < len(sys.argv):
+                    contact_name = sys.argv[i + 1]
+                elif arg == '--data-dir' and i + 1 < len(sys.argv):
+                    data_dir = sys.argv[i + 1]
+                elif arg == '--list':
+                    contacts = app.list_available_contacts(data_dir)
+                    if contacts:
+                        print(f"\n📋 找到 {len(contacts)} 个联系人文件夹:")
+                        for i, contact in enumerate(contacts, 1):
+                            print(f"  {i:2d}. {contact}")
+                    else:
+                        print("\n📭 没有找到任何联系人文件夹")
+                    return
+            
+            app.process_analyze_independent(contact_name, data_dir)
             return
             
         elif command in ['help', '--help', '-h']:
